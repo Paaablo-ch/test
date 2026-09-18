@@ -145,6 +145,7 @@ h2.q{font-family:var(--display);font-weight:700;margin:0;line-height:1.08;letter
 .actions{flex-wrap:wrap;justify-content:center}
 .btn.small{font-size:clamp(13px,1.2vw,17px);padding:12px 20px}
 .btn.accent{color:#050607;background:var(--accent)}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
 @media (max-width:760px){
   #stage,.screen{padding-inline:16px}
   #result{overflow-y:auto;align-content:start;padding-block:56px 28px;place-items:start center}
@@ -300,8 +301,8 @@ h2.q{font-family:var(--display);font-weight:700;margin:0;line-height:1.08;letter
       </div>
       <div class="actions" id="actions">
         <button class="btn small accent" id="dl">Скачать карточку</button>
-        <button class="btn ghost small" id="share" hidden>Отправить другу</button>
-        <button class="btn ghost small" id="chan" hidden>Канал</button>
+        <a class="btn ghost small" id="share" href="#" target="_blank" rel="noopener" hidden>Отправить другу</a>
+        <a class="btn ghost small" id="chan" href="#" target="_blank" rel="noopener" hidden>Канал</a>
         <button class="btn ghost small" id="again">Заново</button>
       </div>
     </div>
@@ -574,7 +575,7 @@ function fill(r){
   $('rsecond').textContent=ARCH[r.second].name;
   $('handle').textContent=HANDLE;
   setProgress(Q.length);
-  currentKey=r.first; goal('finish',{archetype:a.name}); showMain();
+  currentKey=r.first; goal('finish',{archetype:a.name}); showMain(); $('share').href=shareUrl();
 }
 function fitName(){ // ужимает имя, если самое длинное слово не влезает в карточку
   const el=$('rname'); el.style.fontSize='';
@@ -590,22 +591,18 @@ function storyShare(){
   if(inTG && tg.isVersionAtLeast && tg.isVersionAtLeast('7.8')){
     try{ tg.shareToStory(cardUrl(currentKey), {text: shareText(), widget_link:{url: APP_LINK, name:'Пройти тест'}}); return; }catch(e){}
   }
-  friendShare();
+  try{ if(inTG) tg.openTelegramLink(shareUrl()); else window.open(shareUrl(),'_blank'); }catch(e){}
 }
-function friendShare(){
-  goal('share_friend');
-  const u='https://t.me/share/url?url='+encodeURIComponent(APP_LINK)+'&text='+encodeURIComponent('Мой архетип — '+ARCH[currentKey].name+'. А какой у тебя?');
-  if(inTG){ try{ tg.openTelegramLink(u); return; }catch(e){} }
-  if(navigator.share){ navigator.share({text:shareText()}).catch(()=>{}); return; }
-  window.open(u,'_blank');
-}
+function shareUrl(){ return 'https://t.me/share/url?url='+encodeURIComponent(APP_LINK)+'&text='+encodeURIComponent('Мой архетип — '+ARCH[currentKey].name+'. А какой у тебя?'); }
+function friendShare(){ goal('share_friend'); } // ссылка в самой кнопке
+
 function download(){
   goal('download');
   const u=cardUrl(currentKey);
   if(inTG && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0')){ try{ tg.downloadFile({url:u, file_name:'archetype-'+currentKey+'.png'}); return; }catch(e){} }
   const a=document.createElement('a'); a.href=u; a.download='archetype-'+currentKey+'.png'; a.target='_blank'; document.body.appendChild(a); a.click(); a.remove();
 }
-function openChannel(){ goal('channel'); const u='https://t.me/'+CFG.CHANNEL; if(inTG){ try{ tg.openTelegramLink(u); return; }catch(e){} } window.open(u,'_blank'); }
+function openChannel(){ goal('channel'); } // ссылка t.me в самой кнопке — Telegram открывает канал сам
 function showMain(){
   if(!inTG) return;
   try{ tg.MainButton.setParams({text:'Поделиться в истории', color:getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(), text_color:'#050607', is_visible:true}); }catch(e){}
@@ -613,7 +610,7 @@ function showMain(){
 function hideMain(){ if(inTG){ try{ tg.MainButton.hide(); }catch(e){} } }
 if(inTG){ try{ tg.MainButton.onClick(storyShare); }catch(e){} }
 $('dl').onclick=download; $('share').onclick=friendShare; $('chan').onclick=openChannel;
-$('share').hidden=false; if(CFG.CHANNEL) $('chan').hidden=false;
+$('share').hidden=false; if(CFG.CHANNEL){ $('chan').hidden=false; $('chan').href='https://t.me/'+CFG.CHANNEL; }
 /* ---- режим карточки для рендера ?card=<key> ---- */
 (function(){ const k=new URLSearchParams(location.search).get('card'); if(k && ARCH[k]){ document.documentElement.classList.add('cardmode'); fill({first:k, second:k}); } })();
 
