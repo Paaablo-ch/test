@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0d0510">
+<meta name="description" content="Аркада: игры про распознавание манипуляций, ролей и красных флагов.">
+</head>
+<body>
+<title>Аркада</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Onest:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --ground:#0d0510; --panel:#190c22; --line:#331a3e;
+  --ink:#f6eefb; --dim:#b39ec2; --mute:#7a6489;
+  --gold:#ffd23f; --hot:#ff2d6f; --mint:#35f0bb; --vio:#a855f7;
+  --disp:'Unbounded',system-ui,sans-serif;
+  --body:'Onest',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
+  -webkit-tap-highlight-color:transparent}
+#hall{min-height:100%;max-width:460px;margin:0 auto;padding:0 18px;position:relative;
+  display:flex;flex-direction:column;
+  background:
+    radial-gradient(85% 42% at 50% -4%,#5a1a6e 0%,rgba(90,26,110,0) 70%),
+    radial-gradient(65% 32% at 10% 20%,rgba(255,45,111,.26) 0%,transparent 70%),
+    radial-gradient(65% 32% at 92% 30%,rgba(90,60,255,.24) 0%,transparent 70%),
+    linear-gradient(#1b0928,#0d0510 62%)}
+#rays{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+
+header{position:relative;z-index:1;padding-block:calc(34px + env(safe-area-inset-top,0px)) 22px}
+.eyebrow{font-family:var(--disp);font-weight:600;font-size:10.5px;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--gold);margin:0 0 10px}
+h1{font-family:var(--disp);font-weight:900;font-size:clamp(38px,12vw,54px);line-height:.95;
+  letter-spacing:-.02em;margin:0;color:var(--hot);
+  text-shadow:0 0 38px rgba(255,45,111,.55)}
+.lede{margin:14px 0 0;font-size:16px;line-height:1.5;color:var(--dim);max-width:32ch}
+
+.tiles{position:relative;z-index:1;display:flex;flex-direction:column;gap:11px;padding-bottom:10px}
+.tile{display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;
+  background:var(--panel);border:1.5px solid var(--line);border-radius:18px;
+  padding:15px 16px;position:relative;overflow:hidden;
+  transition:transform .15s,border-color .15s,background .15s}
+.tile::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c,var(--vio))}
+.tile.live:hover{transform:translateY(-2px);border-color:var(--c);background:#200f2c}
+.tile.live:active{transform:scale(.99)}
+.tile.live{box-shadow:0 0 34px -14px var(--c)}
+.tile.soon{opacity:.46;pointer-events:none}
+.ico{width:46px;height:46px;flex:none;border-radius:13px;display:grid;place-items:center;
+  background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.ico svg{width:26px;height:26px;display:block;color:var(--c)}
+.txt{flex:1;min-width:0}
+.txt b{display:block;font-family:var(--disp);font-weight:700;font-size:16.5px;line-height:1.2;
+  letter-spacing:-.01em}
+.txt span{display:block;font-size:13.5px;line-height:1.35;color:var(--dim);margin-top:4px}
+.go{flex:none;font-family:var(--disp);font-weight:800;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--c)}
+.badge{flex:none;font-family:var(--disp);font-weight:600;font-size:9px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--mute);border:1px solid var(--line);
+  border-radius:99px;padding:4px 8px}
+
+footer{position:relative;z-index:1;margin-top:auto;padding-block:20px calc(26px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+footer p{margin:0;font-size:13.5px;line-height:1.5;color:var(--mute)}
+footer a{color:var(--gold);font-weight:600;text-decoration:none}
+footer a:hover{text-decoration:underline}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div id="hall">
+  <canvas id="rays"></canvas>
+
+  <header>
+    <p class="eyebrow">Открыто круглосуточно</p>
+    <h1>Аркада</h1>
+    <p class="lede">Заходите, играйте — и выходите с чем-то про себя или про людей вокруг.</p>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <footer>
+    <p>Новые игры появляются в канале.</p>
+    <a id="chan" href="#" target="_blank" rel="noopener">Канал @mytests_paaablo →</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const CFG = { CHANNEL:'mytests_paaablo', METRIKA:112719266 };
+
+const tg = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData!==undefined)
+  ? window.Telegram.WebApp : null;
+const inTG = !!(tg && tg.initData);
+if(tg){
+  try{ tg.ready(); tg.expand(); tg.setHeaderColor('#140820'); tg.setBackgroundColor('#0d0510'); }catch(e){}
+  try{ tg.disableVerticalSwipes(); }catch(e){}
+}
+const LIVE = location.hostname.indexOf('github.io')>-1 || inTG;
+if(LIVE && CFG.METRIKA){ (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+  m[i].l=1*new Date(); for(var j=0;j<e.scripts.length;j++){ if(e.scripts[j].src===r) return; }
+  k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a);
+  })(window,document,'script','https://mc.yandex.ru/metrika/tag.js?id='+CFG.METRIKA,'ym');
+  ym(CFG.METRIKA,'init',{ssr:true,clickmap:false,webvisor:false,referrer:document.referrer,
+    url:location.href,accurateTrackBounce:true,trackLinks:true});
+}
+function goal(n,p){ try{ if(window.ym) ym(CFG.METRIKA,'reachGoal',n,p||{}); }catch(e){} }
+goal('lobby_open');
+$('chan').href='https://t.me/'+CFG.CHANNEL;
+$('chan').onclick=()=>goal('lobby_channel');
+
+const I = {
+  arh:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><circle cx="12" cy="11" r="3"/></svg>',
+  tox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/><path d="M9 11l6 2M15 11l-6 2"/></svg>',
+  flag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22V3"/><path d="M5 4h12l-2.5 4L17 12H5z"/></svg>',
+  trip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a7 7 0 0 1-7 7H8l-4 3V11a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7z"/><path d="M12 8v4M12 15h.01"/></svg>',
+  cards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="15" rx="2"/><path d="M8 2h9a2 2 0 0 1 2 2v13"/><circle cx="8.5" cy="12.5" r="2.5"/></svg>'
+};
+
+const GAMES = [
+  {id:'arhetip', href:'arhetip.html', c:'#ffd23f', ico:I.arh,
+   t:'12 архетипов', s:'Семь пар из Warcraft III — и ваша роль по Юнгу'},
+  {id:'toxic', href:'toxic/', c:'#ff2d6f', ico:I.tox,
+   t:'Бывший пишет', s:'Тапайте на манипуляции. Зарабатывайте очки'},
+  {id:'redflag', soon:1, c:'#ff6a3d', ico:I.flag,
+   t:'Красный флаг', s:'Свидание, кринж или тру крайм? Вам предстоит узнать'},
+  {id:'narciss', soon:1, c:'#35f0bb', ico:I.trip,
+   t:'Мой нарцисс', s:'Удержать границы и не выглядеть истеричкой'},
+  {id:'gadalka', soon:1, c:'#a855f7', ico:I.cards,
+   t:'Fortune Teller', s:'Карты, которые говорят не о будущем, а о вас'}
+];
+
+const box=$('tiles');
+GAMES.forEach(g=>{
+  const el=document.createElement(g.soon?'div':'a');
+  el.className='tile '+(g.soon?'soon':'live');
+  el.style.setProperty('--c', g.c);
+  if(!g.soon){ el.href=g.href; el.onclick=()=>goal('pick_'+g.id); }
+  el.innerHTML='<div class="ico">'+g.ico+'</div>'+
+    '<div class="txt"><b></b><span></span></div>'+
+    (g.soon?'<div class="badge">скоро</div>':'<div class="go">играть</div>');
+  el.querySelector('b').textContent=g.t;
+  el.querySelector('span').textContent=g.s;
+  box.appendChild(el);
+});
+
+/* переход сразу в игру, если пришли по ссылке-вызову */
+try{
+  const sp = tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param;
+  const g = GAMES.find(x=>!x.soon && x.id===sp);
+  if(g) location.replace(g.href);
+}catch(e){}
+
+/* лучи на фоне */
+const cv=$('rays'), cx=cv.getContext('2d'), rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
+function fit(){ const d=Math.min(2,devicePixelRatio||1);
+  cv.width=innerWidth*d; cv.height=innerHeight*d; cx.setTransform(d,0,0,d,0,0); }
+addEventListener('resize',fit); fit();
+function draw(now){
+  const w=innerWidth,h=innerHeight,ox=w/2,oy=h*.18,R=Math.max(w,h)*1.4;
+  cx.clearRect(0,0,w,h);
+  const C=['255,210,63','255,45,111','168,85,247','53,240,187'], n=18, seg=Math.PI*2/n;
+  cx.save(); cx.translate(ox,oy); cx.rotate(now*0.00006);
+  for(let i=0;i<n;i++){ const a=i*seg;
+    cx.beginPath(); cx.moveTo(0,0); cx.arc(0,0,R,a,a+seg*.5); cx.closePath();
+    cx.fillStyle='rgba('+C[i%4]+',.055)'; cx.fill(); }
+  cx.restore();
+  if(!rm) requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+})();
+</script>
+
+</body>
+</html>
